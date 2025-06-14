@@ -91,7 +91,8 @@ func login(client pb.ChatServiceClient, rd *bufio.Reader) (string, ed25519.Priva
 
 
 func main() {
-  conn, err := grpc.Dial("turntable.proxy.rlwy.net:34757", grpc.WithInsecure())
+  addr := os.Getenv("GRPC_SERVER_ADDR")
+  conn, err := grpc.Dial(addr, grpc.WithInsecure())
   if err != nil {
     log.Fatalf("Connect error: %v", err)
   }
