@@ -1,6 +1,7 @@
 package main
 
 import (
+	pb "GOCLIAPP/chatpb"
 	"bufio"
 	"context"
 	"crypto/ed25519"
@@ -11,8 +12,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	pb "GOCLIAPP/chatpb"
 
 	"google.golang.org/grpc"
 )
@@ -39,7 +38,7 @@ func loadPriv(name string) ed25519.PrivateKey {
 }
 
 func register(client pb.ChatServiceClient, rd *bufio.Reader) (string, ed25519.PrivateKey) {
-	flushPrint("🔐 Register username: ")
+	flushPrint("Register username: ")
 	name, _ := rd.ReadString('\n')
 	name = strings.TrimSpace(name)
 
@@ -50,43 +49,43 @@ func register(client pb.ChatServiceClient, rd *bufio.Reader) (string, ed25519.Pr
 		Pubkey: pub,
 	})
 	if err != nil || !resp.Success {
-		log.Fatalf("❌ Register failed: %v | %s", err, resp.Message)
+		log.Fatalf("Register failed: %v | %s", err, resp.Message)
 	}
 
 	encodedPriv := base64.StdEncoding.EncodeToString(priv)
-	fmt.Println("✅ Registered successfully!")
-	fmt.Printf("📋 Your private key (keep this safe!):\n%s\n", encodedPriv)
+	fmt.Println("Registered successfully!")
+	fmt.Printf("Your private key (keep this safe!):\n%s\n", encodedPriv)
 
 	return name, priv
 }
 
 func login(client pb.ChatServiceClient, rd *bufio.Reader) (string, ed25519.PrivateKey) {
-	flushPrint("🔐 Login username: ")
+	flushPrint("Login username: ")
 	name, _ := rd.ReadString('\n')
 	name = strings.TrimSpace(name)
 
-	flushPrint("🔑 Paste your private key (base64): ")
+	flushPrint("Paste your private key (base64): ")
 	privStr, _ := rd.ReadString('\n')
 	privStr = strings.TrimSpace(privStr)
 
 	raw, err := base64.StdEncoding.DecodeString(privStr)
 	if err != nil || len(raw) != ed25519.PrivateKeySize {
-		log.Fatalf("❌ Invalid private key.")
+		log.Fatalf("Invalid private key.")
 	}
 	priv := ed25519.PrivateKey(raw)
 
 	resp, err := client.Login(context.Background(), &pb.LoginRequest{Name: name})
 	if err != nil || !resp.Success {
-		log.Fatalf("❌ Login failed: %v | %s", err, resp.Message)
+		log.Fatalf("Login failed: %v | %s", err, resp.Message)
 	}
 
 	sig := ed25519.Sign(priv, resp.Nonce)
 	vresp, err := client.Verify(context.Background(), &pb.VerifyRequest{Name: name, Signed: sig})
 	if err != nil || !vresp.Success {
-		log.Fatalf("❌ Verify failed: %v | %s", err, vresp.Message)
+		log.Fatalf("Verify failed: %v | %s", err, vresp.Message)
 	}
 
-	fmt.Println("✅ Logged in")
+	fmt.Println("Logged in")
 	return name, priv
 }
 
@@ -119,7 +118,7 @@ func main() {
     log.Fatalf("Join error: %v", err)
   }
 
-  fmt.Printf("🎉 Welcome %s! You are in [%s]\n", username, channel)
+  fmt.Printf("Welcome %s! You are in [%s]\n", username, channel)
   client.SendMessage(context.Background(), &pb.Message{
     User: username, Text: fmt.Sprintf("%s joined", username),
     Timestamp: time.Now().Unix(), Channel: channel,
@@ -142,7 +141,7 @@ Just type your message and press Enter to chat in the current room.`)
         log.Fatalf("Recv error: %v", err)
       }
       if m.Receiver == username {
-        fmt.Printf("📩 [Private] %s: %s\n", m.User, m.Text)
+        fmt.Printf("[Private] %s: %s\n", m.User, m.Text)
       } else if m.Receiver == "" && m.Channel == channel && m.User != username{
         fmt.Printf("[%s] %s\n", m.User, m.Text)
       }
@@ -158,7 +157,7 @@ Just type your message and press Enter to chat in the current room.`)
       parts := strings.SplitN(text, " ", 3)
       switch parts[0] {
       case "/exit":
-        fmt.Println("👋 Exiting...")
+        fmt.Println("Exiting...")
         client.SendMessage(context.Background(), &pb.Message{
           User:      username,
           Text:      fmt.Sprintf("%s has left the chat.", username),
@@ -168,12 +167,12 @@ Just type your message and press Enter to chat in the current room.`)
         os.Exit(0)
       case "/msg":
         if len(parts) < 3 {
-          fmt.Println("⚠️ Usage: /msg <user> <message>")
+          fmt.Println("Usage: /msg <user> <message>")
           continue
         }
         receiver, message := parts[1], parts[2]
         if(receiver == username){
-          fmt.Println("⚠️ Cant send to your self!");
+          fmt.Println("Cant send to your self!");
           continue;
         }
         client.SendMessage(context.Background(), &pb.Message{
@@ -183,36 +182,36 @@ Just type your message and press Enter to chat in the current room.`)
           Receiver:  receiver,
           Channel:   channel,
         })
-        fmt.Printf("📤 [Private to %s]: %s\n", receiver, message)
+        fmt.Printf("[Private to %s]: %s\n", receiver, message)
 
       case "/create":
         if len(parts) < 2 {
-          fmt.Println("⚠️ Usage: /create <room>")
+          fmt.Println("Usage: /create <room>")
           continue
         }
         room := parts[1]
         resp, err := client.CreateRoom(context.Background(), &pb.RoomRequest{Name: room})
         if err != nil {
-          fmt.Println("❌ Room creation failed:", err)
+          fmt.Println("Room creation failed:", err)
         } else if resp.AlreadyExists {
-          fmt.Println("⚠️ Room already exists.")
+          fmt.Println("Room already exists.")
         } else {
-          fmt.Printf("✅ Room '%s' created.\n", room)
+          fmt.Printf("Room '%s' created.\n", room)
         }
 
       case "/switch":
         if len(parts) < 2 {
-          fmt.Println("⚠️ Usage: /switch <room>")
+          fmt.Println("Usage: /switch <room>")
           continue
         }
         newRoom := parts[1]
         _, err := client.SwitchChannel(context.Background(), &pb.User{Name: username, Channel: newRoom})
         if err != nil {
-          fmt.Println("❌ Room switch failed:", err)
+          fmt.Println("Room switch failed:", err)
           continue
         }
         channel = newRoom
-        fmt.Printf("🔀 Switched to [%s]\n", channel)
+        fmt.Printf("Switched to [%s]\n", channel)
         client.SendMessage(context.Background(), &pb.Message{
           User:      username,
           Text:      fmt.Sprintf("%s has joined room '%s'", username, channel),
